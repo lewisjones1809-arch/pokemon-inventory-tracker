@@ -134,8 +134,6 @@ def create_inventory(con: sqlite3.Connection) -> pd.DataFrame:
     base_df = pd.merge(base_df, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices, left_on='variantID', right_on='variantID', how='left').merge(current_prices, left_on='variantID', right_on='variantID', how='left')
     base_df['currentValue'] = base_df.quantityHeld * base_df.averageSellPrice
 
-
-
     return base_df
 
 # getter function to get variant ID from card ID and finish
@@ -212,6 +210,10 @@ def calc_fifo_cost(cur: sqlite3.Cursor, variant_id: int, condition: str) -> tupl
         
     remaining_cost = total_cost - realised_cost
     return (realised_cost, remaining_cost)
+
+def calc_current_value(inventory: pd.DataFrame) -> int:
+    return inventory.currentValue.sum()
+
 
 def reset_table(cur: sqlite3.Cursor, table: str):
     cur.execute(f"DELETE FROM {table}")
