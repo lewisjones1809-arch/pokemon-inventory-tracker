@@ -4,3 +4,4 @@ __pycache__/
 venv/
 .venv/
 Pokemon Tracker.code-workspace
+manual_insert.py
