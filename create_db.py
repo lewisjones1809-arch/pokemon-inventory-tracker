@@ -6,14 +6,15 @@ con = sqlite3.connect('pokemon_tracker.db')
 # Create a cursor object to execute SQL commands
 cur = con.cursor()
 
-# Delete the tables if they already exist
+
+'''# Delete the tables if they already exist
 cur.execute("DROP TABLE allCards")
 cur.execute("DROP TABLE cardVariants")
 cur.execute("DROP TABLE listedPrices")
 cur.execute("DROP TABLE priceHistory")
 cur.execute("DROP TABLE sales")
 cur.execute("DROP TABLE purchases")
-
+'''
 # Create the six tables
 cur.execute("CREATE TABLE allCards (id STRING PRIMARY KEY, cardName STRING, setName STRING, setNumber STRING, url STRING, rarity STRING)")
 cur.execute("CREATE TABLE cardVariants (id INTEGER PRIMARY KEY, cardID STRING, finish STRING, FOREIGN KEY (cardID) REFERENCES allCards(id))")

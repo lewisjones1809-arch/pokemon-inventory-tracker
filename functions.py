@@ -103,7 +103,7 @@ def show_latest_prices(variants: pd.DataFrame, price_history: pd.DataFrame) -> p
     merged =  variants.merge(price_history, left_on='id', right_on='variantID', how='left')
 
     # get most recent prices
-    latest_prices = merged.loc[merged.groupby('variantID')['capturedAt'].idxmax(), ['cardID', 'finish', 'averageSellPrice', 'trendPrice', 'capturedAt']].reset_index(drop=True)
+    latest_prices = merged.loc[merged.groupby('variantID')['capturedAt'].idxmax(), ['variantID', 'cardID', 'finish', 'averageSellPrice', 'trendPrice', 'capturedAt']].reset_index(drop=True)
     return latest_prices
 
 # derive inventory from purchases and sales
@@ -111,7 +111,7 @@ def create_inventory(con: sqlite3.Connection) -> pd.DataFrame:
 
     # sqlite query to calculate the total held quantities
     query = """
-        SELECT variantID, condition, SUM(qty) AS quantity_held
+        SELECT variantID, condition, SUM(qty) AS quantityHeld
         FROM (
             SELECT variantID, purchaseCondition AS condition, purchaseQuantity AS qty
             FROM purchases
@@ -126,12 +126,17 @@ def create_inventory(con: sqlite3.Connection) -> pd.DataFrame:
     card_variants = pd.read_sql_query("SELECT * FROM cardVariants", con).set_index('id')
     all_cards = pd.read_sql_query("SELECT * FROM allCards", con).set_index('id')
     listed_prices = pd.read_sql_query("SELECT * FROM listedPrices", con).set_index('id')
+    price_history = pd.read_sql_query("SELECT * FROM priceHistory", con).set_index('id')
+    current_prices = show_latest_prices(card_variants, price_history)
 
     # merge all required fields into inventory
-    inventory = pd.read_sql(query, con)
-    inventory = pd.merge(inventory, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices, left_on='variantID', right_on='variantID', how='left')
+    base_df = pd.read_sql(query, con)
+    base_df = pd.merge(base_df, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices, left_on='variantID', right_on='variantID', how='left').merge(current_prices, left_on='variantID', right_on='variantID', how='left')
+    base_df['currentValue'] = base_df.quantityHeld * base_df.averageSellPrice
 
-    return inventory
+
+
+    return base_df
 
 # getter function to get variant ID from card ID and finish
 def get_variant_id(cur: sqlite3.Cursor, card_id: str, finish: str) -> int:
@@ -183,3 +188,30 @@ def make_sale(cur: sqlite3.Cursor, card_id: str, finish: str, quantity: int, con
 
     # insert row
     cur.execute("INSERT INTO sales (variantID, saleQuantity, saleCondition, salePrice, saleDate) VALUES (?, ?, ?, ?, ?)", (variant_id, quantity, condition, price, date))
+
+def calc_fifo_cost(cur: sqlite3.Cursor, variant_id: int, condition: str) -> tuple[float, float]:
+
+    purchases_oldest_first = cur.execute("SELECT purchasePrice, purchaseQuantity FROM purchases WHERE variantID = ? AND purchaseCondition = ? ORDER BY purchaseDate ASC", (variant_id, condition)).fetchall()
+    sold_quantity = cur.execute("SELECT SUM(saleQuantity) FROM sales WHERE variantID = ? AND saleCondition = ?", (variant_id, condition)).fetchone()[0]
+    total_cost = cur.execute("SELECT SUM(purchasePrice * purchaseQuantity) FROM purchases WHERE variantID = ? AND purchaseCondition = ?", (variant_id, condition)).fetchone()[0]
+
+    if sold_quantity is None:
+        sold_quantity = 0
+
+    remaining_to_sell = sold_quantity
+    realised_cost = 0
+
+
+    for purchase in purchases_oldest_first:
+        if remaining_to_sell <= 0:
+            break
+        
+        consumed = min(remaining_to_sell, purchase[1])
+        realised_cost += purchase[0] * consumed
+        remaining_to_sell -= consumed
+        
+    remaining_cost = total_cost - realised_cost
+    return (realised_cost, remaining_cost)
+
+def reset_table(cur: sqlite3.Cursor, table: str):
+    cur.execute(f"DELETE FROM {table}")
