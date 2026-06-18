@@ -2,7 +2,6 @@ from dotenv import load_dotenv
 import requests
 import os
 import sqlite3
-from datetime import datetime
 
 # load .env file
 load_dotenv()
