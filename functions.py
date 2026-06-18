@@ -101,10 +101,15 @@ def show_latest_prices(variants: pd.DataFrame, price_history: pd.DataFrame) -> p
 
     # merge the two dataframes on the variantID
     merged =  variants.merge(price_history, left_on='id', right_on='variantID', how='left')
+
+    # get most recent prices
     latest_prices = merged.loc[merged.groupby('variantID')['capturedAt'].idxmax(), ['cardID', 'finish', 'averageSellPrice', 'trendPrice', 'capturedAt']].reset_index(drop=True)
     return latest_prices
 
+# derive inventory from purchases and sales
 def create_inventory(con: sqlite3.Connection) -> pd.DataFrame:
+
+    # sqlite query to calculate the total held quantities
     query = """
         SELECT variantID, condition, SUM(qty) AS quantity_held
         FROM (
@@ -117,38 +122,64 @@ def create_inventory(con: sqlite3.Connection) -> pd.DataFrame:
         GROUP BY variantID, condition
     """
 
+    #load tables in dataframes
     card_variants = pd.read_sql_query("SELECT * FROM cardVariants", con).set_index('id')
     all_cards = pd.read_sql_query("SELECT * FROM allCards", con).set_index('id')
     listed_prices = pd.read_sql_query("SELECT * FROM listedPrices", con).set_index('id')
 
+    # merge all required fields into inventory
     inventory = pd.read_sql(query, con)
     inventory = pd.merge(inventory, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices, left_on='variantID', right_on='variantID', how='left')
 
     return inventory
 
+# getter function to get variant ID from card ID and finish
 def get_variant_id(cur: sqlite3.Cursor, card_id: str, finish: str) -> int:
+
+    # try to select the appropriate variant
     result = cur.execute("SELECT id FROM cardVariants WHERE cardID = ? AND finish = ?", (card_id, finish)).fetchone()
 
+    # check if attempt was unsuccessful
     if result is None:
+        
+        # if unsuccessful, call the api with the right params and only the card_id as the id
         params={"select": "id,name,set,number,cardmarket,rarity"}
         response = call_api(params, id=card_id)
+
+        # if API returns an error raise an exception and ask the user to check ID and try again
         if response.status_code != 200:
             raise Exception(f"API error with status code {response.status_code}. Please check ID and try again")
         
+        #parse the response, create new cards in the database and fetch prices
         response_json = response.json()
         create_new_cards(cur, response_json['data'])
         update_prices(cur, response_json['data'])
+
+        #try to select the variant again
         result = cur.execute("SELECT id FROM cardVariants WHERE cardID = ? AND finish = ?", (card_id, finish)).fetchone()
+
+        # if there is still no variant, raise an exception and ask the user to check the finish
         if result is None:
             raise Exception("Error with card variant. Please check finish and try again")
 
+    #pull the integer from the result as variant ID
     variant_id = result[0]
     return variant_id
 
+# function to add a row to the purchases table
 def make_purchase(cur: sqlite3.Cursor, card_id: str, finish: str, quantity: int, condition: str, price: float, date, source: str) -> None:
+    
+    # get variant ID
     variant_id = get_variant_id(cur, card_id, finish)
+
+    # insert row
     cur.execute("INSERT INTO purchases (variantID, purchaseQuantity, purchaseCondition, purchasePrice, purchaseDate, purchaseSource) VALUES (?, ?, ?, ?, ?, ?)", (variant_id, quantity, condition, price, date, source))
 
+# function to add a row to the sales table
 def make_sale(cur: sqlite3.Cursor, card_id: str, finish: str, quantity: int, condition: str, price: float, date) -> None:
+
+    # get variant ID
     variant_id = get_variant_id(cur, card_id, finish)
+
+    # insert row
     cur.execute("INSERT INTO sales (variantID, saleQuantity, saleCondition, salePrice, saleDate) VALUES (?, ?, ?, ?, ?)", (variant_id, quantity, condition, price, date))
