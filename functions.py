@@ -140,8 +140,8 @@ def create_inventory(con: sqlite3.Connection) -> pd.DataFrame:
     base_df['currentValue'] = base_df.quantityHeld * base_df.averageSellPrice
     base_df['listedValue'] = base_df.quantityHeld * base_df.listPrice
     #reordered_df = base_df[['cardID', 'variantID', 'finish', 'condition', 'quantityHeld', 'rarity', 'listPrice', 'averageSellPrice', 'trendPrice', 'currentValue', 'listedValue']]
-    #filtered_df = reordered_df[reordered_df['quantityHeld'] != 0]
-    return base_df
+    filtered_df = base_df[base_df['quantityHeld'] != 0]
+    return filtered_df
 
 # getter function to get variant ID from card ID and finish
 def get_variant_id(cur: sqlite3.Cursor, card_id: str, finish: str) -> int:
