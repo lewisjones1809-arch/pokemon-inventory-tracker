@@ -3,6 +3,11 @@ import requests
 from dotenv import load_dotenv
 import os
 import pandas as pd
+import streamlit as st
+
+@st.cache_resource
+def get_connection():
+    return sqlite3.connect('pokemon_tracker.db', check_same_thread=False)
 
 # call the api and return the response as a json object
 def call_api(params: dict, id: str ="") -> dict:
@@ -39,7 +44,7 @@ def create_new_cards(cur: sqlite3.Cursor, cards: dict[dict]) -> None:
 
         # if card not in table already, insert into allCards table
         if cur.execute("SELECT id FROM allCards WHERE id = ?", (card['id'],)).fetchone() is None:
-            cur.execute("INSERT INTO allCards (id, cardName, setName, setNumber, url, rarity) VALUES (?,?, ?, ?, ?, ?)", (card['id'], card['name'], card['set']['name'], card['number'], url, card.get('rarity', 'Unknown')))
+            cur.execute("INSERT INTO allCards (id, cardName, setName, setNumber, url, rarity, imageURL) VALUES (?,?, ?, ?, ?, ?, ?)", (card['id'], card['name'], card['set']['name'], card['number'], url, card.get('rarity', 'Unknown'), card['images']['large']))
             new_cards_counter += 1
 
         # if variant not in table already, insert into cardVariants table
@@ -131,9 +136,11 @@ def create_inventory(con: sqlite3.Connection) -> pd.DataFrame:
 
     # merge all required fields into inventory
     base_df = pd.read_sql(query, con)
-    base_df = pd.merge(base_df, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices, left_on='variantID', right_on='variantID', how='left').merge(current_prices, left_on='variantID', right_on='variantID', how='left')
+    base_df = pd.merge(base_df, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices[['variantID', 'listPrice']], left_on='variantID', right_on='variantID', how='left').merge(current_prices[['variantID', 'averageSellPrice', 'trendPrice', 'capturedAt']], left_on='variantID', right_on='variantID', how='left')
     base_df['currentValue'] = base_df.quantityHeld * base_df.averageSellPrice
-
+    base_df['listedValue'] = base_df.quantityHeld * base_df.listPrice
+    #reordered_df = base_df[['cardID', 'variantID', 'finish', 'condition', 'quantityHeld', 'rarity', 'listPrice', 'averageSellPrice', 'trendPrice', 'currentValue', 'listedValue']]
+    #filtered_df = reordered_df[reordered_df['quantityHeld'] != 0]
     return base_df
 
 # getter function to get variant ID from card ID and finish
@@ -146,7 +153,7 @@ def get_variant_id(cur: sqlite3.Cursor, card_id: str, finish: str) -> int:
     if result is None:
         
         # if unsuccessful, call the api with the right params and only the card_id as the id
-        params={"select": "id,name,set,number,cardmarket,rarity"}
+        params={"select": "id,name,set,number,cardmarket,rarity,images"}
         response = call_api(params, id=card_id)
 
         # if API returns an error raise an exception and ask the user to check ID and try again
@@ -212,7 +219,7 @@ def calc_fifo_cost(cur: sqlite3.Cursor, variant_id: int, condition: str) -> tupl
     return (realised_cost, remaining_cost)
 
 def calc_current_value(inventory: pd.DataFrame) -> int:
-    return inventory.currentValue.sum()
+    return inventory.currentValue.sum(), inventory.listedValue.sum()
 
 
 def reset_table(cur: sqlite3.Cursor, table: str):
