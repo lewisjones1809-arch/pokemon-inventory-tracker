@@ -13,7 +13,7 @@ with st.form("purchase_form", clear_on_submit=True, enter_to_submit=False):
     row1 = st.columns([1,1,1])
     finish = row1[0].selectbox('Finish', ['Normal', 'Reverse Holo'])
     quantity = row1[1].number_input('Quantity Purchased', min_value=1, step=1)
-    condition = row1[2].selectbox('Condition', ['Mint', 'Near Mint', 'Excellent', 'Lightly Played', 'Moderately Played', 'Heavily Played', 'Poor'])
+    condition = row1[2].selectbox('Condition', ['MT', 'NM', 'EX', 'GD', 'LP', 'PL', 'PO'])
     
     row2 = st.columns([1,1,1])
     price_paid = row2[0].number_input('Price Paid per Card', min_value=0.0, step=0.5)
@@ -34,7 +34,7 @@ with st.form("sale_form", clear_on_submit=True, enter_to_submit=False):
     row1 = st.columns([1,1,1])
     finish = row1[0].selectbox('Finish', ['Normal', 'Reverse Holo'])
     quantity = row1[1].number_input('Quantity Sold', min_value=1, step=1)
-    condition = row1[2].selectbox('Condition', ['Mint', 'Near Mint', 'Excellent', 'Lightly Played', 'Moderately Played', 'Heavily Played', 'Poor'])
+    condition = row1[2].selectbox('Condition', ['MT', 'NM', 'EX', 'GD', 'LP', 'PL', 'PO'])
     
     row2 = st.columns([1,1])
     price_sold = row2[0].number_input('Price Sold per Card', min_value=0.0, step=0.5)
