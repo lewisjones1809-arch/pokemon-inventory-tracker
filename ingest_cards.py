@@ -8,6 +8,7 @@ cur = con.cursor()
 # define the parameters for the API call and make the call
 params={"select": "id,name,set,number,cardmarket,rarity,images"}
 response_json = call_api(params).json()
+print(response_json)
 
 # insert the data
 create_new_cards(cur, response_json['data'])

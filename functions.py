@@ -9,6 +9,13 @@ import streamlit as st
 def get_connection():
     return sqlite3.connect('pokemon_tracker.db', check_same_thread=False)
 
+def safe_get(d, *keys, default=None):
+    for key in keys:
+        if not isinstance(d, dict):
+            return default
+        d = d.get(key)
+    return d if d is not None else default
+
 # call the api and return the response as a json object
 def call_api(params: dict, id: str ="") -> dict:
     # load .env file
@@ -22,8 +29,36 @@ def call_api(params: dict, id: str ="") -> dict:
     response = requests.get(url, headers={"X-Api-Key": api_key}, params=params)
     return response
 
+def get_sets_from_api(params, id):
+    # load .env file
+    load_dotenv()
+
+    # set URL and API key
+    url = f"https://api.pokemontcg.io/v2/sets/{id}"
+    api_key = os.getenv("POKEMON_API_KEY")
+
+    # call the API and get the response
+    response = requests.get(url, headers={"X-Api-Key": api_key}, params=params)
+    return response
+
+def get_set_id_from_name(set_name):
+    load_dotenv()
+
+    url = f"https://api.pokemontcg.io/v2/sets"
+    api_key = os.getenv("POKEMON_API_KEY")
+    params = {'q': f'name:"{set_name}"','select': 'id,name'}
+
+    response = requests.get(url, headers={"X-Api_key": api_key}, params=params)
+    response_json = response.json()
+    set_id = response_json['data'][0].get('id')
+    return set_id
+
 # add new card to allCards table
 def create_new_cards(cur: sqlite3.Cursor, cards: dict[dict]) -> None:
+    # ensure input is a list
+    if isinstance(cards, dict):
+        cards = [cards]
+
     # initialise counters for new cards and variants
     new_cards_counter = 0
     new_variants_counter = 0
@@ -32,15 +67,21 @@ def create_new_cards(cur: sqlite3.Cursor, cards: dict[dict]) -> None:
     for card in cards:
 
         # check if cardmarket data exists for the card
-        cardmarket = card.get('cardmarket')
+        cardmarket = safe_get(card, 'cardmarket')
+        tcgplayer = safe_get(card, 'tcgplayer')
 
-        #if data exists, extract url, otherwise set them to None
+        # reverse-holo existence is only reliable from tcgplayer - cardmarket
+        # populates reverseHolo* price fields for every card regardless of
+        # whether a reverse holo actually exists, so it can't be trusted here.
+        has_reverse_holo = safe_get(tcgplayer, 'prices', 'reverseHolofoil') is not None
+
+        # prefer cardmarket for the url, falling back to tcgplayer
         if cardmarket is not None:
-            url = cardmarket.get('url')
-            has_reverse_holo = (cardmarket.get('prices').get('reverseHoloAvg30') != 0)
+            url = safe_get(cardmarket, 'url')
+        elif tcgplayer is not None:
+            url = safe_get(tcgplayer, 'url')
         else:
             url = None
-            has_reverse_holo = False
 
         # if card not in table already, insert into allCards table
         if cur.execute("SELECT id FROM allCards WHERE id = ?", (card['id'],)).fetchone() is None:
@@ -48,8 +89,8 @@ def create_new_cards(cur: sqlite3.Cursor, cards: dict[dict]) -> None:
             new_cards_counter += 1
 
         # if variant not in table already, insert into cardVariants table
-        if cur.execute("SELECT id FROM cardVariants WHERE cardID = ? AND finish = ?", (card['id'], 'Normal')).fetchone() is None:    
-            cur.execute("INSERT INTO cardVariants (cardID, finish) VALUES (?, ?)", (card['id'], 'Normal'))
+        if cur.execute("SELECT id FROM cardVariants WHERE cardID = ? AND finish = ?", (card['id'], 'Regular')).fetchone() is None:    
+            cur.execute("INSERT INTO cardVariants (cardID, finish) VALUES (?, ?)", (card['id'], 'Regular'))
             new_variants_counter += 1
     
         # if reverse holo exists and not in table already, insert into cardVariants table
@@ -62,6 +103,10 @@ def create_new_cards(cur: sqlite3.Cursor, cards: dict[dict]) -> None:
 
 # update price history
 def update_prices(cur: sqlite3.Cursor, cards: dict[dict]) -> None:
+    # ensure input is a list
+    if isinstance(cards, dict):
+        cards = [cards]
+
     # initialise a counter variable
     counter = 0
 
@@ -69,26 +114,34 @@ def update_prices(cur: sqlite3.Cursor, cards: dict[dict]) -> None:
     for card in cards:
 
         # check if cardmarket data exists for the card
-        cardmarket = card.get('cardmarket')
+        cardmarket = safe_get(card, 'cardmarket')
+        tcgplayer = safe_get(card, 'tcgplayer')
+
+        # reverse-holo existence is only reliable from tcgplayer (see create_new_cards)
+        has_reverse_holo = safe_get(tcgplayer, 'prices', 'reverseHolofoil') is not None
 
         #if data exists, extract the relevant fields, otherwise set them to None
         if cardmarket is not None:
-            has_reverse_holo = (cardmarket.get('prices').get('reverseHoloAvg30') != 0)
-            trend_price = cardmarket.get('prices').get('trendPrice')
-            avg30 = cardmarket.get('prices').get('avg30')
-            reverse_holo_avg30 = cardmarket.get('prices').get('reverseHoloAvg30')
-            reverse_holo_trend = cardmarket.get('prices').get('reverseHoloTrend')
-            updated_at = cardmarket.get('updatedAt')
+            trend_price = safe_get(cardmarket, 'prices', 'trendPrice')
+            avg30 = safe_get(cardmarket, 'prices', 'avg30')
+            reverse_holo_avg30 = safe_get(cardmarket, 'prices', 'reverseHoloAvg30') if has_reverse_holo else None
+            reverse_holo_trend = safe_get(cardmarket, 'prices', 'reverseHoloTrend') if has_reverse_holo else None
+            updated_at = safe_get(cardmarket, 'updatedAt')
+        elif tcgplayer is not None:
+            trend_price = safe_get(tcgplayer, 'prices', 'normal', 'market') if safe_get(tcgplayer, 'prices', 'normal', 'market') is not None else safe_get(tcgplayer, 'prices', 'holofoil', 'market')
+            avg30 = safe_get(tcgplayer, 'prices', 'normal', 'mid') if safe_get(tcgplayer, 'prices', 'normal', 'mid') is not None else safe_get(tcgplayer, 'prices', 'holofoil', 'mid')
+            reverse_holo_avg30 = safe_get(tcgplayer, 'prices', 'reverseHolofoil', 'mid') if has_reverse_holo else None
+            reverse_holo_trend = safe_get(tcgplayer, 'prices', 'reverseHolofoil', 'market') if has_reverse_holo else None
+            updated_at = safe_get(tcgplayer, 'updatedAt')
         else:
-            has_reverse_holo = False
             trend_price = None
             avg30 = None
             reverse_holo_avg30 = None
             reverse_holo_trend = None
-            updated_at = None   
+            updated_at = None
             
         # refresh prices for normal variant
-        normal_variant_id = cur.execute("SELECT id FROM cardVariants WHERE cardID = ? AND finish = ?", (card['id'], 'Normal')).fetchone()[0]
+        normal_variant_id = cur.execute("SELECT id FROM cardVariants WHERE cardID = ? AND finish = ?", (card['id'], 'Regular')).fetchone()[0]
         cur.execute("INSERT INTO priceHistory (variantID, averageSellPrice, trendPrice, updatedAt,capturedAt) VALUES(?, ?, ?, ?, datetime('now'))", (normal_variant_id, avg30, trend_price, updated_at))
         counter += 1
 
