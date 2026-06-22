@@ -5,3 +5,6 @@ venv/
 .venv/
 Pokemon Tracker.code-workspace
 manual_insert.py
+inventory.csv
+api_tests.py
+.claude/
