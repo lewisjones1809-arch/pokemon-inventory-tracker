@@ -2,6 +2,7 @@ import pandas as pd
 import sqlite3
 from functions import call_api, create_new_cards, update_prices, get_variant_id, create_inventory, get_set_id_from_name
 import time
+import csv
 
 con = sqlite3.connect('pokemon_tracker.db')
 cur = con.cursor()
@@ -58,6 +59,7 @@ skipped = 0
 failed = 0
 
 seen = {}
+failed_cards = []
 
 for index, card in existing_inventory.iterrows():
     try:
@@ -99,10 +101,15 @@ for index, card in existing_inventory.iterrows():
         cur.execute("INSERT INTO listedPrices (variantID, listPrice, condition) VALUES (?, ?, ?)", (variant_id, list_price, condition))
         counter += 1
         con.commit()
-        print(f'Successfully imported {finish} {card_name}-{collector_number} from {set_name}')
     except Exception as e:
         failed += 1
+        failed_cards.append({'Card' : card_name, 'Exception' : e})
         print(f'Failed: {card_name} - {e}')
+
+with open('failures.csv', 'w') as out:
+            csv_out = csv.DictWriter(out, fieldnames=['Card', 'Exception'])
+            csv_out.writeheader()
+            csv_out.writerows(failed_cards)
 
 print(f'Successfully migrated {counter} English cards. {skipped} cards in other languages skipped. {failed} cards failed to import')
 con.close()
