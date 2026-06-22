@@ -8,12 +8,12 @@ cur = con.cursor()
 
 
 # Delete the tables if they already exist
-cur.execute("DROP TABLE allCards")
-cur.execute("DROP TABLE cardVariants")
-cur.execute("DROP TABLE listedPrices")
-cur.execute("DROP TABLE priceHistory")
-cur.execute("DROP TABLE sales")
-cur.execute("DROP TABLE purchases")
+cur.execute("DROP TABLE IF EXISTS allCards")
+cur.execute("DROP TABLE IF EXISTS cardVariants")
+cur.execute("DROP TABLE IF EXISTS listedPrices")
+cur.execute("DROP TABLE IF EXISTS priceHistory")
+cur.execute("DROP TABLE IF EXISTS sales")
+cur.execute("DROP TABLE IF EXISTS purchases")
 cur.execute("DROP TABLE IF EXISTS importedSets")
 
 # Create the tables
@@ -25,3 +25,7 @@ cur.execute("CREATE TABLE sales (id INTEGER PRIMARY KEY, variantID INTEGER, sale
 cur.execute("CREATE TABLE purchases (id INTEGER PRIMARY KEY, variantID INTEGER, purchaseQuantity INTEGER, purchaseCondition TEXT, purchasePrice REAL, purchaseDate DATETIME, purchaseSource TEXT, FOREIGN KEY (variantID) REFERENCES cardVariants(id))")
 # tracks which sets have been fully imported so load_inventory can resume after a failure
 cur.execute("CREATE TABLE importedSets (setName TEXT PRIMARY KEY)")
+
+# persist the changes and close the connection
+con.commit()
+con.close()
