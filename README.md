@@ -1,9 +1,6 @@
 # Pokémon Card Inventory Tracker
 
-A full-stack inventory and price tracking tool for a Pokémon card collection. It ingests
-card data from a live API, tracks price history over time, records purchases and sales,
-and computes inventory value, margins, and realised profit using FIFO cost-basis
-accounting all surfaced through an interactive dashboard.
+A full-stack inventory and price tracking tool for a Pokémon card collection. It ingests card data from a live API, tracks price history over time, records purchases and sales, and computes inventory value, margins, and realised profit using FIFO cost-basis accounting all surfaced through an interactive dashboard.
 
 Tested on my real ~3,800 card for-sale collection. Currently only accepts English cards, but other languages will come later down the line.
 
@@ -81,15 +78,20 @@ streamlit run main.py
 
 A few choices that reflect deliberate engineering rather than defaults:
 
-- **Derived inventory over stored state:** holdings are recomputed from immutable
-  purchase/sale logs, so the data can't silently corrupt and can always be rebuilt.
-- **FIFO cost basis:** chosen over average cost because purchase prices vary by an order
-  of magnitude, making average meaningless; verified against hand-calculated cases
-  including multi-lot and out-of-order-date scenarios.
-- **Variant detection from price data:** which finishes exist is inferred from which
-  price families are present, rather than from a brittle rarity-based heuristic.
-- **Swappable data source:** ingestion is isolated behind a thin layer, so the price/card
-  provider can be changed without touching the rest of the app.
+- **Derived inventory over stored state:** holdings are recomputed from immutable purchase/sale logs, so the data can't silently corrupt and can always be rebuilt.
+- **FIFO cost basis:** chosen over average cost because purchase prices vary by an order of magnitude, making average meaningless; verified against hand-calculated cases including multi-lot and out-of-order-date scenarios.
+- **Variant detection from price data:** which finishes exist is inferred from which price families are present, rather than from a brittle rarity-based heuristic.
+- **Swappable data source:** ingestion is isolated behind a thin layer, so the price/card provider can be changed without touching the rest of the app.
+
+## Use of AI
+
+Claude has been used to assist in this project a handful of times. These are listed below for complete transparency:
+
+- **Card Insert Failure Diagnostic:** 307 cards were not imported correctly from my existing TCGPowerTools inventory, so I tasked Claude with diagnosing the issue. Claude suggested 4 separate fixes, which I then allowed it to implement. These fixes were:
+1. A manual mapping of some set names that the API does not recognise
+2. Fixing collector numbers for trainer gallery cards and others with letters in the CN
+3. Fixed promo imports and spotted a mismatch between my export and reality - Surging Sparks was incorrectly labelled as "Standard Series Promos" returning no results from the API.
+4. Reverse holo insert even when API does not believe the card exists: inventory is the source of truth, the API doesn't always have pricing data for cards even when they exist.
 
 ## Roadmap
 
@@ -106,6 +108,4 @@ A few choices that reflect deliberate engineering rather than defaults:
 
 ## Notes
 
-This is a personal project built to manage a real collection. Card data and prices are
-sourced from third-party APIs; this project stores no copyrighted card text or imagery
-beyond linking to the provider's hosted images.
+This is a personal project built to manage a real collection. Card data and prices are sourced from third-party APIs; this project stores no copyrighted card text or imagerybeyond linking to the provider's hosted images.
