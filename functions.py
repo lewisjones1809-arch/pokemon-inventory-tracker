@@ -388,6 +388,64 @@ def get_purchases(_con):
 def get_sales(_con):
     return create_sale_tiles(_con)
 
+def generate_price_history(cur: sqlite3.Cursor, set_name: str, rng: random.Random, today: datetime, weeks: int = 52) -> None:
+    """Backfill priceHistory with a realistic ~1-year weekly time series for every
+    variant in `set_name`.
+
+    update_prices only records a single "now" snapshot, so the Price History chart
+    has nothing to plot for dummy data. This walks each variant's price backwards in
+    time as a multiplicative random walk (per-card volatility + a small drift), then
+    normalises the series so its most recent point lands on the variant's real
+    current price - giving a continuous, believable history that ends where today's
+    real price begins.
+    """
+    rows = cur.execute(
+        """
+        SELECT v.id, ph.averageSellPrice, ph.trendPrice
+        FROM cardVariants v
+        JOIN allCards c ON c.id = v.cardID
+        JOIN priceHistory ph ON ph.id = (
+            SELECT ph2.id FROM priceHistory ph2
+            WHERE ph2.variantID = v.id
+            ORDER BY ph2.capturedAt DESC, ph2.id DESC LIMIT 1
+        )
+        WHERE c.setName = ?
+        """,
+        (set_name,),
+    ).fetchall()
+
+    for variant_id, avg_now, trend_now in rows:
+        # anchor the series to whatever current price we have (chart plots avg)
+        anchor = avg_now if (avg_now is not None and avg_now > 0) else trend_now
+        if anchor is None or anchor <= 0:
+            continue
+
+        # cheaper cards swing harder in percentage terms than chase cards
+        sigma = rng.uniform(0.06, 0.10) if anchor < 5 else rng.uniform(0.03, 0.06)
+        drift = rng.uniform(-0.004, 0.006)  # mild long-run trend, up or down
+
+        # multiplicative random walk; cap downside so prices never collapse to ~0
+        levels = []
+        level = 1.0
+        for _ in range(weeks):
+            level *= max(0.6, 1 + drift + rng.gauss(0, sigma))
+            levels.append(level)
+
+        # scale so the most recent synthetic point equals the real current price
+        scale = anchor / levels[-1]
+
+        for w in range(weeks):
+            weeks_ago = weeks - 1 - w  # week 0 == ~1yr ago, last week == ~now
+            captured = today - timedelta(weeks=weeks_ago, days=rng.randint(0, 6))
+            avg_price = max(0.01, round(levels[w] * scale, 2))
+            trend_price = max(0.01, round(avg_price * rng.uniform(0.96, 1.08), 2))
+            stamp = captured.strftime('%Y-%m-%d %H:%M:%S')
+            cur.execute(
+                "INSERT INTO priceHistory (variantID, averageSellPrice, trendPrice, updatedAt, capturedAt) VALUES (?, ?, ?, ?, ?)",
+                (variant_id, avg_price, trend_price, stamp, stamp),
+            )
+
+
 def insert_dummy(con):
     """Populate the database with a realistic sample inventory so users without an
     existing inventory CSV can explore the tool's features.
@@ -427,6 +485,10 @@ def insert_dummy(con):
     cards = response.json()['data']
     create_new_cards(cur, cards)
     update_prices(cur, cards)
+
+    # backfill a synthetic ~1yr price history so the Price History chart has a
+    # realistic trend to plot (update_prices only logs a single "now" snapshot)
+    generate_price_history(cur, SET_NAME, rng, datetime.now())
 
     if cur.execute("SELECT setName FROM importedSets WHERE setName = ?", (SET_NAME,)).fetchone() is None:
         cur.execute("INSERT INTO importedSets (setName) VALUES (?)", (SET_NAME,))

@@ -18,7 +18,7 @@
 - [x] Improve speed of inventory panel
 - [ ] Polish inventory filtering (numbers ordering correctly, names ordering correctly etc.)
 - [ ] Currency formatting with commas
-- [ ] Better formatting on purchase and sales history pages
+- [x] Better formatting on purchase and sales history pages
 
 ## Later / nice-to-have
 - [x] @st.cache_resource for the DB connection

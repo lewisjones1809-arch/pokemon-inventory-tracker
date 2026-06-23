@@ -13,7 +13,7 @@ top_filt_row = st.columns(3)
 with top_filt_row[0]:
     name_filt = st_keyup('Card Name', key='name_input', placeholder='e.g Ekans', debounce=300)
 set_filt = top_filt_row[1].selectbox('Set', sorted({resolve_card(s, cn)[0] for s, cn in zip(sales['setName'], sales['setNumber'])}), index=None, placeholder='e.g 151')
-sort_by = top_filt_row[2].selectbox('Sort by', ['Name ASC', 'Name DESC', 'Set ASC', 'Set DESC', 'Price ASC', 'Price DESC', 'Number ASC', 'Number DESC'])
+sort_by = top_filt_row[2].selectbox('Sort by', ['Name ASC', 'Name DESC', 'Set ASC', 'Set DESC', 'Price ASC', 'Price DESC', 'Date ASC', 'Date DESC'])
 sort_column = ''
 [split_sort, asc_desc] = sort_by.split()
 
@@ -28,9 +28,9 @@ if split_sort == 'Name':
 elif split_sort == 'Set':
     sort_column = 'setName'
 elif split_sort == 'Price':
-    sort_column = 'pricerice'
-elif split_sort == 'Number':
-    sort_column = 'setNumber'
+    sort_column = 'price'
+elif split_sort == 'Date':
+    sort_column = 'date'
 
 if asc_desc == 'ASC':
     asc_desc = True
@@ -62,5 +62,5 @@ with st.container(height = 650, ):
         _, mid, _ = tile.columns([1,2,1])
         mid.image(card['imageURL'])
         left_list, right_list = tile.columns([2,1])
-        left_list.write(f'Sale for: £{card['price']:.2f}')
+        left_list.write(f'Sold for: £{card['price']:.2f} on {card['date']}')
         right_list.write(f'Quantity: {card['quantity']}')
