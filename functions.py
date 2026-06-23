@@ -140,7 +140,7 @@ def get_set_id_from_name(set_name):
     api_key = os.getenv("POKEMON_API_KEY")
     params = {'q': f'name:"{set_name}"','select': 'id,name'}
 
-    response = requests.get(url, headers={"X-Api_key": api_key}, params=params)
+    response = requests.get(url, headers={"X-Api-key": api_key}, params=params)
     response_json = response.json()
     set_id = response_json['data'][0].get('id')
     return set_id
