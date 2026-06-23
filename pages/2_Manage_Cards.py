@@ -10,6 +10,8 @@ def _txt(df, col):
 
 st.title('Manage Cards')
 
+st.write('Log a purchase')
+
 all_cards = get_all_cards(con)
 
 all_cards['display'] = (
@@ -32,7 +34,6 @@ chosen_purchase = purchase_matches.iloc[0]
 card_id_purchase = chosen_purchase['cardID']
 finish_purchase = chosen_purchase['finish']
 
-st.write('Log a purchase')
 with st.form("purchase_form", clear_on_submit=True, enter_to_submit=False):
 
     row1 = st.columns([1,1])
