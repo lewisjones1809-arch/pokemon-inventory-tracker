@@ -2,12 +2,16 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 import math
-from functions import get_inventory, calc_fifo_cost, calc_current_value, resolve_card
+from functions import get_inventory, calc_fifo_cost, calc_current_value, resolve_card, init_db
 from st_keyup import st_keyup
 from natsort import natsort_keygen
 
 # Create a connection to the database
 con = sqlite3.connect('pokemon_tracker.db')
+
+# Create any missing tables and load the demo dataset if the database is empty,
+# so a fresh clone runs with no manual setup.
+init_db(con)
 
 # Create a cursor object to execute SQL commands
 cur = con.cursor()

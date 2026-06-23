@@ -24,7 +24,7 @@
 
 ## Later / nice-to-have
 - [x] @st.cache_resource for the DB connection
-- [ ] Deploy live (Streamlit Community Cloud)
+- [x] Deploy live (Streamlit Community Cloud)
 
 ## v2 Features
 - [ ] Japanese Cards

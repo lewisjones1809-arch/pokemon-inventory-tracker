@@ -13,14 +13,10 @@ Tested on my real ~3,800 card for-sale collection. Currently only accepts Englis
 - **Detects variants** (regular / reverse holo) from the card's price data
 - **Tracks price history** as an append-only log, so value can be charted over time.
 - **Records purchases and sales** as immutable event logs.
-- **Derives current inventory** (held quantity per card variant + condition) from those
-  logs rather than storing mutable state to prevent drift.
-- **Computes valuation**: current market value, unrealised margin, total sales, and
-  realised profit using **FIFO cost-basis accounting** (verified against hand-calculated
-  test cases).
+- **Derives current inventory** (held quantity per card variant + condition) from those logs rather than storing mutable state to prevent drift.
+- **Computes valuation**: current market value, unrealised margin, total sales, and realised profit using **FIFO cost-basis accounting** (verified against hand-calculated test cases).
 - **Bulk-imports** an existing collection from a CSV export.
-- **Interactive dashboard** (Streamlit): KPI metrics, a visual card grid with images, and
-  a data-entry interface for logging new trades.
+- **Interactive dashboard** (Streamlit): KPI metrics, a visual card grid with images, and a data-entry interface for logging new trades.
 
 ## Architecture
 
@@ -62,17 +58,13 @@ source .venv/bin/activate
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Add your API key
-#    Open .env.example, paste your API key here:
-#    POKEMON_API_KEY=your_key_here
-#.   Rename .env.example -> .env
-
-# 5. Set up the database schema
-python3 create_db.py       
-
-# 6. Run the dashboard
-streamlit run main.py            
+# 4. Run the dashboard
+streamlit run main.py
 ```
+
+On first launch the app creates its tables and loads a committed demo dataset (`seed.sql`) automatically, so it works out of the box with no API key or manual setup. To explore with your own data instead, add your pokemontcg.io API key (copy `.env.example` to `.env` and set `POKEMON_API_KEY`); the Settings page can then import live sets, refresh prices, and upload your own inventory CSV.
+
+> Running `python3 create_db.py` wipes the database back to empty tables, after which the next `streamlit run main.py` re-seeds the demo data.
 
 ## Design decisions
 

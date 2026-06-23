@@ -17,6 +17,45 @@ SET_ALIASES = {
     'SV Black Star Promos': 'Scarlet & Violet Black Star Promos',
 }
 
+# Single source of truth for the schema. Uses IF NOT EXISTS so it is safe to run on
+# every startup - existing tables are left untouched. create_db.py drops first for a
+# clean rebuild; init_db() below relies on these being non-destructive.
+SCHEMA_STATEMENTS = [
+    "CREATE TABLE IF NOT EXISTS allCards (id TEXT PRIMARY KEY, cardName TEXT, setName TEXT, setNumber TEXT, url TEXT, rarity TEXT, imageURL TEXT)",
+    "CREATE TABLE IF NOT EXISTS cardVariants (id INTEGER PRIMARY KEY, cardID TEXT, finish TEXT, FOREIGN KEY (cardID) REFERENCES allCards(id))",
+    "CREATE TABLE IF NOT EXISTS listedPrices (id INTEGER PRIMARY KEY, variantID INTEGER, listPrice REAL, condition TEXT, FOREIGN KEY (variantID) REFERENCES cardVariants(id))",
+    "CREATE TABLE IF NOT EXISTS priceHistory (id INTEGER PRIMARY KEY, variantID INTEGER, averageSellPrice REAL, trendPrice REAL, updatedAt DATETIME, capturedAt DATETIME, FOREIGN KEY (variantID) REFERENCES cardVariants(id))",
+    "CREATE TABLE IF NOT EXISTS sales (id INTEGER PRIMARY KEY, variantID INTEGER, saleQuantity INTEGER, saleCondition TEXT, salePrice REAL, saleDate DATETIME, FOREIGN KEY (variantID) REFERENCES cardVariants(id))",
+    "CREATE TABLE IF NOT EXISTS purchases (id INTEGER PRIMARY KEY, variantID INTEGER, purchaseQuantity INTEGER, purchaseCondition TEXT, purchasePrice REAL, purchaseDate DATETIME, purchaseSource TEXT, FOREIGN KEY (variantID) REFERENCES cardVariants(id))",
+    "CREATE TABLE IF NOT EXISTS importedSets (setName TEXT PRIMARY KEY)",
+]
+
+SEED_PATH = os.path.join(os.path.dirname(__file__), 'seed.sql')
+
+
+def create_tables(con: sqlite3.Connection) -> None:
+    """Create every table the app needs if it doesn't already exist (idempotent)."""
+    cur = con.cursor()
+    for statement in SCHEMA_STATEMENTS:
+        cur.execute(statement)
+    con.commit()
+
+
+def init_db(con: sqlite3.Connection, seed_path: str = SEED_PATH) -> None:
+    """Make the database ready to use on startup.
+
+    Creates any missing tables, then - if the database is empty - loads the
+    committed demo dataset from seed.sql so a fresh clone works with no API key,
+    internet, or manual setup. A database that already has cards is left alone.
+    """
+    create_tables(con)
+
+    has_cards = con.execute("SELECT EXISTS(SELECT 1 FROM allCards)").fetchone()[0]
+    if not has_cards and os.path.exists(seed_path):
+        with open(seed_path, 'r', encoding='utf-8') as f:
+            con.executescript(f.read())
+        con.commit()
+
 
 def resolve_card(set_name: str, cn: str) -> tuple[str, str]:
     """Translate an inventory (set, collector number) into the (setName, setNumber)
