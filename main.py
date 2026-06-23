@@ -20,8 +20,9 @@ total_realised_basis = 0
 
 # Compute realised cost and remaining cost
 for index, card in inventory.iterrows():
-    total_remaining_cost += calc_fifo_cost(cur, card['variantID'], card['condition'])[1]
-    total_realised_basis += calc_fifo_cost(cur, card['variantID'], card['condition'])[0]
+    fifo = calc_fifo_cost(cur, card['variantID'], card['condition'])
+    total_remaining_cost += fifo[1]
+    total_realised_basis += fifo[0]
 
 # Compute unrealised margin
 unrealised_margin = round(current_value - total_remaining_cost, 2)
