@@ -331,9 +331,14 @@ def calc_current_value(inventory: pd.DataFrame) -> int:
     return inventory.currentValue.sum(), inventory.listedValue.sum()
 
 
-def reset_table(cur: sqlite3.Cursor, table: str):
+def reset_table(con: sqlite3.Connection, table: str):
+    cur = con.cursor()
     cur.execute(f"DELETE FROM {table}")
+    con.commit()
 
 @st.cache_data
 def get_inventory(_con):
     return create_inventory(_con)
+
+def insert_dummy(con):
+    pass

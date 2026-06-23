@@ -3,10 +3,12 @@
 ## Features
 - [ ] Price-history chart (headline feature, not yet visible)
 - [x] README with screenshot + architecture overview
-- [ ] Filtering on inventory cards
-- [x] Settings page - reset DB, reinsert manual cards
+- [x] Filtering on inventory cards
+- [x] Settings page - reset DB
+- [x] Settings page - inventory upload
+- [ ] Settings page - load dummy data
 - [ ] Purchase form live drop down from API query
-- [ ] Sales form live drop down from owned cards
+- [x] Sales form live drop down from owned cards
 
 ## Polish
 - [x] Fix double calc_fifo_cost call (computed twice per card)
@@ -14,6 +16,9 @@
 - [ ] Add success/error feedback on purchase & sale forms
 - [ ] Handle invalid Card ID gracefully (clear error, not traceback)
 - [x] Improve speed of inventory panel
+- [ ] Polish inventory filtering (numbers ordering correctly, names ordering correctly etc.)
+- [ ] Currency formatting with commas
+- [ ] Better formatting on purchase and sales history pages
 
 ## Later / nice-to-have
 - [x] @st.cache_resource for the DB connection

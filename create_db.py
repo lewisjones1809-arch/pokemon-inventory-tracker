@@ -1,11 +1,8 @@
 import sqlite3
 
-# Create a connection to the database
 con = sqlite3.connect('pokemon_tracker.db')
 
-# Create a cursor object to execute SQL commands
 cur = con.cursor()
-
 
 # Delete the tables if they already exist
 cur.execute("DROP TABLE IF EXISTS allCards")
@@ -23,7 +20,6 @@ cur.execute("CREATE TABLE listedPrices (id INTEGER PRIMARY KEY, variantID INTEGE
 cur.execute("CREATE TABLE priceHistory (id INTEGER PRIMARY KEY, variantID INTEGER, averageSellPrice REAL, trendPrice REAL, updatedAt DATETIME, capturedAt DATETIME, FOREIGN KEY (variantID) REFERENCES cardVariants(id))")
 cur.execute("CREATE TABLE sales (id INTEGER PRIMARY KEY, variantID INTEGER, saleQuantity INTEGER, saleCondition TEXT, salePrice REAL, saleDate DATETIME, FOREIGN KEY (variantID) REFERENCES cardVariants(id))")
 cur.execute("CREATE TABLE purchases (id INTEGER PRIMARY KEY, variantID INTEGER, purchaseQuantity INTEGER, purchaseCondition TEXT, purchasePrice REAL, purchaseDate DATETIME, purchaseSource TEXT, FOREIGN KEY (variantID) REFERENCES cardVariants(id))")
-# tracks which sets have been fully imported so load_inventory can resume after a failure
 cur.execute("CREATE TABLE importedSets (setName TEXT PRIMARY KEY)")
 
 # persist the changes and close the connection
