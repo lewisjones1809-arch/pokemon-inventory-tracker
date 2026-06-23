@@ -19,7 +19,7 @@ _txt('setNumber') + ' | ' +
 _txt('rarity') + ' | ' +
 _txt('finish')
 )
-options = natsorted(inventory['display'].unique().tolist())
+options = inventory['display'].unique().tolist()
 
 card = st.selectbox('Select Card', options=options)
 

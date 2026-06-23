@@ -1,6 +1,6 @@
 import streamlit as st
-from functions import reset_table, get_connection, get_inventory, insert_dummy
-from load_inventory import load_inventory_from_pd
+from functions import reset_table, get_connection, get_inventory, insert_dummy, get_set_list, get_all_cards
+from load_inventory import load_inventory_from_pd, import_set
 import pandas as pd
 
 con = get_connection()
@@ -48,6 +48,35 @@ if st.button('Insert Dummy Data'):
         except Exception as e:
             status.update(label="Insert failed", state="error")
             st.error(f"Could not insert dummy data: {e}")
+
+
+all_sets = get_set_list()
+
+# which sets are already imported?
+imported = {row[0] for row in con.cursor().execute("SELECT setName FROM importedSets")}
+available = [s for s in all_sets if s['name'] not in imported]
+
+chosen = st.selectbox(
+    "Import a set",
+    options=available,
+    format_func=lambda s: s['name'],     # show the name, keep the whole set dict
+)           
+
+if st.button("Import set"):
+    with st.status(f"Importing {chosen['name']}...", expanded=True) as status:
+        try:
+            imported = import_set(con, chosen['name'])
+            if imported:
+                get_inventory.clear()    
+                get_all_cards.clear() 
+                status.update(label=f"Imported {chosen['name']}!", state="complete")
+                st.success(f"{chosen['name']} imported — cards now available in the purchase form.")
+            else:
+                status.update(label="Already imported", state="complete")
+                st.info("That set was already imported.")
+        except Exception as e:
+            status.update(label="Import failed", state="error")
+            st.error(f"Could not import set: {e}")
 
 table = st.selectbox('Reset Table:', ['allCards', 'cardVariants', 'purchases', 'sales', 'listedPrices', 'priceHistory', 'importedSets'])
 st.button('Reset Table', on_click=reset_table, args=(con, table))

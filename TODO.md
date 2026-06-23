@@ -7,14 +7,15 @@
 - [x] Settings page - reset DB
 - [x] Settings page - inventory upload
 - [x] Settings page - load dummy data
-- [ ] Purchase form live drop down from API query
+- [x] Purchase form drop down
 - [x] Sales form live drop down from owned cards
+- [x] Import sets from settings menu
 
 ## Polish
 - [x] Fix double calc_fifo_cost call (computed twice per card)
 - [x] Clean up _x / _y column names from merges
-- [ ] Add success/error feedback on purchase & sale forms
-- [ ] Handle invalid Card ID gracefully (clear error, not traceback)
+- [x] Add success/error feedback on purchase & sale forms
+- [x] Handle invalid Card ID gracefully (clear error, not traceback)
 - [x] Improve speed of inventory panel
 - [x] Polish inventory filtering (numbers ordering correctly, names ordering correctly etc.)
 - [x] Currency formatting with commas

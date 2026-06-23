@@ -2,7 +2,45 @@ import pandas as pd
 import sqlite3
 from functions import call_api, create_new_cards, update_prices, get_variant_id, create_inventory, get_set_id_from_name, resolve_card
 import time
-import csv
+
+def import_set(con: sqlite3.Connection, set_name, page_size=250):
+    
+    cur = con.cursor()
+
+    imported_sets = {row[0] for row in cur.execute("SELECT setName FROM importedSets")}
+
+    if set_name in imported_sets:
+        return False
+
+    page = 1
+
+    while True:
+        params = {
+            'q': f'!set.name:"{set_name}"',
+            'select': 'id,name,set,number,tcgplayer,rarity,images',
+            'page': page,
+            'pageSize': page_size
+        }
+        time.sleep(0.1)
+        response = call_api(params)
+
+        if response.status_code != 200:
+                time.sleep(5)
+                continue
+        
+        cards = response.json()['data']
+
+        create_new_cards(cur, cards)
+        update_prices(cur, cards)
+
+        # a short page means we've reached the end of this set
+        if len(cards) < page_size:
+            break
+        page += 1
+
+    cur.execute("INSERT INTO importedSets (setName) VALUES (?)", (set_name,))
+    con.commit()
+    return True
 
 def load_inventory_from_pd(con: sqlite3.Connection, existing_inventory, page_size=250, set_status=None, row_progress=None):
 
@@ -10,46 +48,13 @@ def load_inventory_from_pd(con: sqlite3.Connection, existing_inventory, page_siz
 
     english = existing_inventory[existing_inventory['language'] == 'English']
     sets = sorted({resolve_card(s, cn)[0] for s, cn in zip(english['set'], english['cn'])})
-    imported_sets = {row[0] for row in cur.execute("SELECT setName FROM importedSets")}
 
     for i, set in enumerate(sets):
-        if set in imported_sets:
-            continue
 
         if set_status:
             set_status(f"Loading set {i+1} of {len(sets)}: {set}")
 
-        page = 1
-
-        while True:
-            params = {
-                'q': f'set.name:"{set}"',
-                'select': 'id,name,set,number,tcgplayer,rarity,images',
-                'page': page,
-                'pageSize': page_size,
-            }
-            time.sleep(0.1)
-            response = call_api(params)
-
-            if response.status_code != 200:
-                time.sleep(5)
-                continue
-
-            cards = response.json()['data']
-
-            create_new_cards(cur, cards)
-            update_prices(cur, cards)
-
-            # a short page means we've reached the end of this set
-            if len(cards) < page_size:
-                break
-            page += 1
-
-        # mark the set as done in the SAME commit as its card data, so it's only
-        # recorded as imported if all its pages were written successfully
-        cur.execute("INSERT INTO importedSets (setName) VALUES (?)", (set,))
-        con.commit()
-        
+        import_set(con, set, page_size)
 
     counter = skipped = failed = 0
     seen, failed_cards = {}, []

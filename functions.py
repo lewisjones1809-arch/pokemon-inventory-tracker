@@ -75,10 +75,14 @@ def call_api(params: dict, id: str ="") -> dict:
     api_key = os.getenv("POKEMON_API_KEY")
 
     # call the API and get the response
-    response = requests.get(url, headers={"X-Api-Key": api_key}, params=params)
+    try:
+        response = requests.get(url, headers={"X-Api-Key": api_key}, params=params, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        raise Exception(f'API Call failed: {e}')
     return response
 
-def get_sets_from_api(params, id):
+def get_sets_from_api(params, id=''):
     # load .env file
     load_dotenv()
 
@@ -267,6 +271,21 @@ def create_sale_tiles(con: sqlite3.Connection) -> pd.DataFrame:
     base_df = pd.merge(base_df, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices[['variantID', 'condition', 'listPrice']], on=['variantID', 'condition'], how='left').merge(current_prices[['variantID', 'averageSellPrice', 'trendPrice', 'capturedAt']], left_on='variantID', right_on='variantID', how='left')
     return base_df
 
+def create_all_cards_selector(con: sqlite3.Connection) -> pd.DataFrame:
+    # sqlite query to calculate the total held quantities
+    query = """
+        SELECT *
+        FROM cardVariants
+    """
+
+    #load tables in dataframes
+    all_cards = pd.read_sql_query("SELECT * FROM allCards", con).set_index('id')
+
+    # merge all required fields into sales
+    base_df = pd.read_sql(query, con)
+    base_df = pd.merge(base_df, all_cards, left_on='cardID', right_on='id', how='left')
+    return base_df
+
 # getter function to get variant ID from card ID and finish
 def get_variant_id(cur: sqlite3.Cursor, card_id: str, finish: str, create_if_missing: bool = False) -> int:
 
@@ -357,6 +376,7 @@ def calc_current_value(inventory: pd.DataFrame) -> int:
 
 def reset_table(con: sqlite3.Connection, table: str):
     cur = con.cursor()
+    st.cache_data.clear()
     cur.execute(f"DELETE FROM {table}")
     con.commit()
 
@@ -371,6 +391,10 @@ def get_purchases(_con):
 @st.cache_data
 def get_sales(_con):
     return create_sale_tiles(_con)
+
+@st.cache_data
+def get_all_cards(_con):
+    return create_all_cards_selector(_con)
 
 def generate_price_history(cur: sqlite3.Cursor, set_name: str, rng: random.Random, today: datetime, weeks: int = 52) -> None:
     """Backfill priceHistory with a realistic ~1-year weekly time series for every
@@ -554,3 +578,9 @@ def insert_dummy(con):
         cur.execute("INSERT INTO listedPrices (variantID, listPrice, condition) VALUES (?, ?, ?)", (variant_id, list_price, condition))
 
     con.commit()
+
+
+@st.cache_data
+def get_set_list():
+    response = get_sets_from_api(params={}, id="")   # the /sets list endpoint
+    return response.json()['data']  
