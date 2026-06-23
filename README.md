@@ -100,11 +100,12 @@ Claude has been used to assist in this project a handful of times. These are lis
 - FIFO valuation and P&L (tested)
 - Derived inventory and dashboard
 - CSV bulk import (English cards)
+- Price-history charting in the UI
+- Live card lookup in the purchase form
 
 **In progress for v2:**
 - Multi-language support (Japanese / Korean cards)
-- Price-history charting in the UI
-- Live card lookup in the purchase form
+
 
 ## Notes
 
