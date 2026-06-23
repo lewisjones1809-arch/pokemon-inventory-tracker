@@ -4,6 +4,7 @@ import pandas as pd
 import math
 from functions import get_inventory, calc_fifo_cost, calc_current_value, resolve_card
 from st_keyup import st_keyup
+from natsort import natsort_keygen
 
 # Create a connection to the database
 con = sqlite3.connect('pokemon_tracker.db')
@@ -14,6 +15,7 @@ cur = con.cursor()
 # Create the inventory and get current value
 inventory = get_inventory(con)
 current_value, listed_value = calc_current_value(inventory)
+nat_key = natsort_keygen()
 
 # Initalise running totals
 total_remaining_cost = 0
@@ -45,11 +47,11 @@ st.title("Card Tracker")
 
 inv, sale, prof, unreal, listed = st.columns(5)
 
-inv.metric('Inventory Value', f'£{current_value:.2f}')
-sale.metric('Total Sales', f'£{total_sales:.2f}')
-prof.metric('Lifetime Profit', f'£{realised_p_l:.2f}')
-unreal.metric('Unrealised Margin', f'£{unrealised_margin:.2f}')
-listed.metric('Total Listing Value', f'£{listed_value:.2f}')
+inv.metric('Inventory Value', f'£{current_value:,.2f}')
+sale.metric('Total Sales', f'£{total_sales:,.2f}')
+prof.metric('Lifetime Profit', f'£{realised_p_l:,.2f}')
+unreal.metric('Unrealised Margin', f'£{unrealised_margin:,.2f}')
+listed.metric('Total Listing Value', f'£{listed_value:,.2f}')
 
 top_filt_row = st.columns(3)
 with top_filt_row[0]:
@@ -65,21 +67,26 @@ inventory = inventory[inventory['cardName'].str.contains(name_filt)]
 if set_filt is not None:
     inventory = inventory[inventory['setName'] == set_filt]
 
+key = None
+
 if split_sort == 'Name':
     sort_column = 'cardName'
+    key = lambda col: col.str.lower()
 elif split_sort == 'Set':
     sort_column = 'setName'
+    key = lambda col: col.str.lower()
 elif split_sort == 'Price':
     sort_column = 'listPrice'
 elif split_sort == 'Number':
     sort_column = 'setNumber'
+    key = nat_key
 
 if asc_desc == 'ASC':
     asc_desc = True
 else:
     asc_desc = False
 
-inventory = inventory.sort_values(by=[sort_column], ascending=asc_desc)
+inventory = inventory.sort_values(by=[sort_column], ascending=asc_desc, key=key)
 
 # Paginate the inventory grid
 page_size = 40

@@ -24,7 +24,7 @@ def load_inventory_from_pd(con: sqlite3.Connection, existing_inventory, page_siz
         while True:
             params = {
                 'q': f'set.name:"{set}"',
-                'select': 'id,name,set,number,cardmarket,tcgplayer,rarity,images',
+                'select': 'id,name,set,number,tcgplayer,rarity,images',
                 'page': page,
                 'pageSize': page_size,
             }

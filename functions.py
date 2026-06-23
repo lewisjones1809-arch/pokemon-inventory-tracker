@@ -115,22 +115,13 @@ def create_new_cards(cur: sqlite3.Cursor, cards: dict[dict]) -> None:
     # loop through all cards
     for card in cards:
 
-        # check if cardmarket data exists for the card
-        cardmarket = safe_get(card, 'cardmarket')
+        # all pricing/links come from tcgplayer
         tcgplayer = safe_get(card, 'tcgplayer')
 
-        # reverse-holo existence is only reliable from tcgplayer - cardmarket
-        # populates reverseHolo* price fields for every card regardless of
-        # whether a reverse holo actually exists, so it can't be trusted here.
+        # reverse holo exists only if tcgplayer reports a reverseHolofoil price block
         has_reverse_holo = safe_get(tcgplayer, 'prices', 'reverseHolofoil') is not None
 
-        # prefer cardmarket for the url, falling back to tcgplayer
-        if cardmarket is not None:
-            url = safe_get(cardmarket, 'url')
-        elif tcgplayer is not None:
-            url = safe_get(tcgplayer, 'url')
-        else:
-            url = None
+        url = safe_get(tcgplayer, 'url')
 
         # if card not in table already, insert into allCards table
         if cur.execute("SELECT id FROM allCards WHERE id = ?", (card['id'],)).fetchone() is None:
@@ -162,21 +153,14 @@ def update_prices(cur: sqlite3.Cursor, cards: dict[dict]) -> None:
     #loop through all cards
     for card in cards:
 
-        # check if cardmarket data exists for the card
-        cardmarket = safe_get(card, 'cardmarket')
+        # all pricing comes from tcgplayer
         tcgplayer = safe_get(card, 'tcgplayer')
 
-        # reverse-holo existence is only reliable from tcgplayer (see create_new_cards)
+        # reverse holo exists only if tcgplayer reports a reverseHolofoil price block
         has_reverse_holo = safe_get(tcgplayer, 'prices', 'reverseHolofoil') is not None
 
         #if data exists, extract the relevant fields, otherwise set them to None
-        if cardmarket is not None:
-            trend_price = safe_get(cardmarket, 'prices', 'trendPrice')
-            avg30 = safe_get(cardmarket, 'prices', 'avg30')
-            reverse_holo_avg30 = safe_get(cardmarket, 'prices', 'reverseHoloAvg30') if has_reverse_holo else None
-            reverse_holo_trend = safe_get(cardmarket, 'prices', 'reverseHoloTrend') if has_reverse_holo else None
-            updated_at = safe_get(cardmarket, 'updatedAt')
-        elif tcgplayer is not None:
+        if tcgplayer is not None:
             trend_price = safe_get(tcgplayer, 'prices', 'normal', 'market') if safe_get(tcgplayer, 'prices', 'normal', 'market') is not None else safe_get(tcgplayer, 'prices', 'holofoil', 'market')
             avg30 = safe_get(tcgplayer, 'prices', 'normal', 'mid') if safe_get(tcgplayer, 'prices', 'normal', 'mid') is not None else safe_get(tcgplayer, 'prices', 'holofoil', 'mid')
             reverse_holo_avg30 = safe_get(tcgplayer, 'prices', 'reverseHolofoil', 'mid') if has_reverse_holo else None
@@ -238,7 +222,7 @@ def create_inventory(con: sqlite3.Connection) -> pd.DataFrame:
 
     # merge all required fields into inventory
     base_df = pd.read_sql(query, con)
-    base_df = pd.merge(base_df, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices[['variantID', 'listPrice']], left_on='variantID', right_on='variantID', how='left').merge(current_prices[['variantID', 'averageSellPrice', 'trendPrice', 'capturedAt']], left_on='variantID', right_on='variantID', how='left')
+    base_df = pd.merge(base_df, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices[['variantID', 'condition', 'listPrice']], on=['variantID', 'condition'], how='left').merge(current_prices[['variantID', 'averageSellPrice', 'trendPrice', 'capturedAt']], left_on='variantID', right_on='variantID', how='left')
     base_df['currentValue'] = base_df.quantityHeld * base_df.averageSellPrice
     base_df['listedValue'] = base_df.quantityHeld * base_df.listPrice
     #reordered_df = base_df[['cardID', 'variantID', 'finish', 'condition', 'quantityHeld', 'rarity', 'listPrice', 'averageSellPrice', 'trendPrice', 'currentValue', 'listedValue']]
@@ -261,7 +245,7 @@ def create_purchase_tiles(con: sqlite3.Connection) -> pd.DataFrame:
 
     # merge all required fields into purchases
     base_df = pd.read_sql(query, con)
-    base_df = pd.merge(base_df, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices[['variantID', 'listPrice']], left_on='variantID', right_on='variantID', how='left').merge(current_prices[['variantID', 'averageSellPrice', 'trendPrice', 'capturedAt']], left_on='variantID', right_on='variantID', how='left')
+    base_df = pd.merge(base_df, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices[['variantID', 'condition', 'listPrice']], on=['variantID', 'condition'], how='left').merge(current_prices[['variantID', 'averageSellPrice', 'trendPrice', 'capturedAt']], left_on='variantID', right_on='variantID', how='left')
     return base_df
 
 def create_sale_tiles(con: sqlite3.Connection) -> pd.DataFrame:
@@ -280,7 +264,7 @@ def create_sale_tiles(con: sqlite3.Connection) -> pd.DataFrame:
 
     # merge all required fields into sales
     base_df = pd.read_sql(query, con)
-    base_df = pd.merge(base_df, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices[['variantID', 'listPrice']], left_on='variantID', right_on='variantID', how='left').merge(current_prices[['variantID', 'averageSellPrice', 'trendPrice', 'capturedAt']], left_on='variantID', right_on='variantID', how='left')
+    base_df = pd.merge(base_df, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices[['variantID', 'condition', 'listPrice']], on=['variantID', 'condition'], how='left').merge(current_prices[['variantID', 'averageSellPrice', 'trendPrice', 'capturedAt']], left_on='variantID', right_on='variantID', how='left')
     return base_df
 
 # getter function to get variant ID from card ID and finish
@@ -293,7 +277,7 @@ def get_variant_id(cur: sqlite3.Cursor, card_id: str, finish: str, create_if_mis
     if result is None:
         
         # if unsuccessful, call the api with the right params and only the card_id as the id
-        params={"select": "id,name,set,number,cardmarket,rarity,images"}
+        params={"select": "id,name,set,number,tcgplayer,rarity,images"}
         response = call_api(params, id=card_id)
 
         # if API returns an error raise an exception and ask the user to check ID and try again
@@ -474,7 +458,7 @@ def insert_dummy(con):
     # 2. import the set from the API - one page (pageSize 250) covers the whole set
     params = {
         'q': f'set.name:"{SET_NAME}"',
-        'select': 'id,name,set,number,cardmarket,tcgplayer,rarity,images',
+        'select': 'id,name,set,number,tcgplayer,rarity,images',
         'page': 1,
         'pageSize': 250,
     }

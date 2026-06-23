@@ -1,7 +1,7 @@
 # TODO
 
 ## Features
-- [ ] Price-history chart (headline feature, not yet visible)
+- [x] Price-history chart (headline feature, not yet visible)
 - [x] README with screenshot + architecture overview
 - [x] Filtering on inventory cards
 - [x] Settings page - reset DB
@@ -17,8 +17,9 @@
 - [ ] Handle invalid Card ID gracefully (clear error, not traceback)
 - [x] Improve speed of inventory panel
 - [ ] Polish inventory filtering (numbers ordering correctly, names ordering correctly etc.)
-- [ ] Currency formatting with commas
+- [x] Currency formatting with commas
 - [x] Better formatting on purchase and sales history pages
+- [ ] Improve tile formatting
 
 ## Later / nice-to-have
 - [x] @st.cache_resource for the DB connection
