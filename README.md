@@ -1,11 +1,15 @@
 # Pokémon Card Inventory Tracker
 
+LIVE STREAMLIT LINK: https://ljpoketracker.streamlit.app
+
 A full-stack inventory and price tracking tool for a Pokémon card collection. It ingests card data from a live API, tracks price history over time, records purchases and sales, and computes inventory value, margins, and realised profit using FIFO cost-basis accounting all surfaced through an interactive dashboard.
 
 Tested on my real ~3,800 card for-sale collection. Currently only accepts English cards, but other languages will come later down the line.
 
 <!-- Replace with your actual screenshot. A hero image sells the project instantly. -->
-![Dashboard](screenshots/dashboard.png)
+![Dashboard](screenshots/main.png)
+![Price History](screenshots/prices.png)
+![Purchase and Sale Logging](screenshots/manage.png)
 
 ## What it does
 
