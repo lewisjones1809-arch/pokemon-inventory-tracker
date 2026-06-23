@@ -37,10 +37,10 @@ if inv_csv is not None:
             st.download_button("Download failures", pd.DataFrame(failures).to_csv(index=False), "failures.csv")
         get_inventory.clear()
 
+st.button('Insert Dummy Data', on_click=insert_dummy)
 
 table = st.selectbox('Reset Table:', ['allCards', 'cardVariants', 'purchases', 'sales', 'listedPrices', 'priceHistory', 'importedSets'])
 st.button('Reset Table', on_click=reset_table, args=(con, table))
 
-st.button('Insert Dummy Data', on_click=insert_dummy)
 
 
