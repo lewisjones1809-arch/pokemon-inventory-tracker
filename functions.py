@@ -309,6 +309,9 @@ def calc_fifo_cost(cur: sqlite3.Cursor, variant_id: int, condition: str) -> tupl
     if sold_quantity is None:
         sold_quantity = 0
 
+    if total_cost is None:
+        total_cost = 0
+
     remaining_to_sell = sold_quantity
     realised_cost = 0
 
@@ -330,3 +333,7 @@ def calc_current_value(inventory: pd.DataFrame) -> int:
 
 def reset_table(cur: sqlite3.Cursor, table: str):
     cur.execute(f"DELETE FROM {table}")
+
+@st.cache_data
+def get_inventory(_con):
+    return create_inventory(_con)

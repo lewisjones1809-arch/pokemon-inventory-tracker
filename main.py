@@ -2,7 +2,7 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 import math
-from functions import create_inventory, calc_fifo_cost, calc_current_value
+from functions import get_inventory, calc_fifo_cost, calc_current_value
 
 # Create a connection to the database
 con = sqlite3.connect('pokemon_tracker.db')
@@ -11,7 +11,7 @@ con = sqlite3.connect('pokemon_tracker.db')
 cur = con.cursor()
 
 # Create the inventory and get current value
-inventory = create_inventory(con)
+inventory = get_inventory(con)
 current_value, listed_value = calc_current_value(inventory)
 
 # Initalise running totals
@@ -30,14 +30,17 @@ unrealised_margin = round(current_value - total_remaining_cost, 2)
 # Compute total sales
 total_sales = cur.execute("SELECT SUM(salePrice * saleQuantity) FROM sales").fetchone()[0]
 
+if total_sales is None:
+    total_sales = 0
+
 # Compute profit
 realised_p_l = round(total_sales - total_realised_basis,2)
 
 # Close connection
 con.close()
 
-st.title("Card Tracker")
 st.set_page_config(layout='wide')
+st.title("Card Tracker")
 
 inv, sale, prof, unreal, listed = st.columns(5)
 
@@ -47,9 +50,17 @@ prof.metric('Lifetime Profit', f'£{realised_p_l:.2f}')
 unreal.metric('Unrealised Margin', f'£{unrealised_margin:.2f}')
 listed.metric('Total Listing Value', f'£{listed_value:.2f}')
 
+# Paginate the inventory grid
+page_size = 40
+total_pages = max(1, math.ceil(len(inventory) / page_size))
+page = st.number_input('Page', min_value=1, max_value=total_pages, value=1, step=1)
+start = (page - 1) * page_size
+page_inventory = inventory.iloc[start:start + page_size]
+st.caption(f'Showing {start + 1}-{min(start + page_size, len(inventory))} of {len(inventory)} cards')
+
 with st.container(height = 650, ):
     cols = st.columns(4)
-    for i, (_, card) in enumerate(inventory.iterrows()):
+    for i, (_, card) in enumerate(page_inventory.iterrows()):
         col = cols[i % 4]
         if i % 4 == 0 and i != 0:
             cols = st.columns(4)
