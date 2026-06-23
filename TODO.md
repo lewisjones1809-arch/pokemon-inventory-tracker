@@ -6,7 +6,7 @@
 - [x] Filtering on inventory cards
 - [x] Settings page - reset DB
 - [x] Settings page - inventory upload
-- [ ] Settings page - load dummy data
+- [x] Settings page - load dummy data
 - [ ] Purchase form live drop down from API query
 - [x] Sales form live drop down from owned cards
 

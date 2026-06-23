@@ -95,6 +95,8 @@ Claude has been used to assist in this project a handful of times. These are lis
 
 - **Main page performance issues:** The inventory dataframe on the main page was incredibly slow to render, so I asked Claude to propose solutions and then I implemented my preferred choice. The solution implemented was simple pagination limiting the inventory to 40 cards per render.
 
+- **Dummy data creation:** I used Claude to generate the function that loads dummy data into the tool so that existing inventories are not required to play around with the functionality.
+
 ## Roadmap
 
 **Working in v1:**

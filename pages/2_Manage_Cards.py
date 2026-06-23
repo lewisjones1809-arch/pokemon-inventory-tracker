@@ -1,5 +1,5 @@
 import streamlit as st
-from functions import make_purchase, make_sale, get_connection
+from functions import make_purchase, make_sale, get_connection, get_inventory, resolve_card
 
 con = get_connection()
 cur = con.cursor()
@@ -28,17 +28,33 @@ if purchase_submit:
     st.success('Purchase Logged!')
 
 st.write('Log a sale')
+
+inventory = get_inventory(con)
+inventory['display'] = (
+inventory['cardName'] + ' | ' +
+inventory['setName'] + ' | CN ' +
+inventory['setNumber'].astype(str) + ' | ' +
+inventory['rarity'] + ' | ' +
+inventory['finish'] + ' | ' +
+inventory['condition'] + ' | Qty: ' +
+inventory['quantityHeld'].astype(str)
+)
+options = inventory['display'].unique().tolist()
+
+card = st.selectbox('Select Card', options=options)
+
+chosen_row = inventory[inventory['display'] == card].iloc[0]
+
+card_id = chosen_row['cardID']
+finish = chosen_row['finish']
+condition = chosen_row['condition']
+
 with st.form("sale_form", clear_on_submit=True, enter_to_submit=False):
-    card_id = st.text_input('Card ID')
 
     row1 = st.columns([1,1,1])
-    finish = row1[0].selectbox('Finish', ['Normal', 'Reverse Holo'])
-    quantity = row1[1].number_input('Quantity Sold', min_value=1, step=1)
-    condition = row1[2].selectbox('Condition', ['MT', 'NM', 'EX', 'GD', 'LP', 'PL', 'PO'])
-    
-    row2 = st.columns([1,1])
-    price_sold = row2[0].number_input('Price Sold per Card', min_value=0.0, step=0.5)
-    sale_date = row2[1].date_input('Sale Date', max_value='today', format='DD/MM/YYYY')
+    price_sold = row1[0].number_input('Price Sold per Card', min_value=0.0, step=0.5)
+    quantity = row1[1].number_input('Quantity Sold', min_value=1, step=1, max_value=int(chosen_row['quantityHeld']))
+    sale_date = row1[2].date_input('Sale Date', max_value='today', format='DD/MM/YYYY')
 
     sale_submit = st.form_submit_button('Make Sale', use_container_width=True)
 

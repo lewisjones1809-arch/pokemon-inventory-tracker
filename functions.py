@@ -3,6 +3,8 @@ import requests
 from dotenv import load_dotenv
 import os
 import re
+import random
+from datetime import datetime, timedelta
 import pandas as pd
 import streamlit as st
 
@@ -341,4 +343,122 @@ def get_inventory(_con):
     return create_inventory(_con)
 
 def insert_dummy(con):
-    pass
+    """Populate the database with a realistic sample inventory so users without an
+    existing inventory CSV can explore the tool's features.
+
+    A fresh install starts empty, so we first import a recognizable set ("151")
+    from the pokemontcg.io API (real cards + prices), then log ~100 purchases with
+    varying quantities, conditions, dates and prices, plus a subset of sales. The
+    purchases/sales/listedPrices tables are wiped first so the button is repeatable.
+
+    Requires POKEMON_API_KEY and internet access.
+    """
+    SET_NAME = "151"
+    CONDITIONS = ['MT', 'NM', 'EX', 'GD', 'LP', 'PL', 'PO']
+    CONDITION_WEIGHTS = [1, 5, 2, 1, 4, 2, 1]  # weighted toward NM / LP
+    SOURCES = ['eBay', 'Local Store', 'Online Marketplace', 'Card Fair', 'Bundle']
+
+    rng = random.Random(42)  # fixed seed -> reproducible dummy data
+
+    # 1. clean slate (leave allCards/cardVariants/priceHistory intact - we add to them)
+    reset_table(con, 'purchases')
+    reset_table(con, 'sales')
+    reset_table(con, 'listedPrices')
+
+    cur = con.cursor()
+
+    # 2. import the set from the API - one page (pageSize 250) covers the whole set
+    params = {
+        'q': f'set.name:"{SET_NAME}"',
+        'select': 'id,name,set,number,cardmarket,tcgplayer,rarity,images',
+        'page': 1,
+        'pageSize': 250,
+    }
+    response = call_api(params)
+    if response.status_code != 200:
+        raise Exception(f"API error with status code {response.status_code}. Check POKEMON_API_KEY / connection and try again.")
+
+    cards = response.json()['data']
+    create_new_cards(cur, cards)
+    update_prices(cur, cards)
+
+    if cur.execute("SELECT setName FROM importedSets WHERE setName = ?", (SET_NAME,)).fetchone() is None:
+        cur.execute("INSERT INTO importedSets (setName) VALUES (?)", (SET_NAME,))
+    con.commit()
+
+    # 3. pick ~100 variants spanning the set, with each one's latest market price
+    variant_rows = cur.execute(
+        """
+        SELECT v.cardID, v.finish,
+               (SELECT ph.trendPrice FROM priceHistory ph
+                WHERE ph.variantID = v.id ORDER BY ph.capturedAt DESC LIMIT 1) AS trendPrice,
+               (SELECT ph.averageSellPrice FROM priceHistory ph
+                WHERE ph.variantID = v.id ORDER BY ph.capturedAt DESC LIMIT 1) AS avgPrice
+        FROM cardVariants v
+        JOIN allCards c ON c.id = v.cardID
+        WHERE c.setName = ?
+        ORDER BY v.cardID, v.finish
+        """,
+        (SET_NAME,),
+    ).fetchall()
+
+    if not variant_rows:
+        raise Exception(f'No cards found for set "{SET_NAME}" after import.')
+
+    # take ~100 evenly across the set so prices span commons -> chase cards
+    target = min(100, len(variant_rows))
+    step = max(1, len(variant_rows) // target)
+    chosen = variant_rows[::step][:target]
+
+    def market_price(trend, avg):
+        for price in (trend, avg):
+            if price is not None and price > 0:
+                return price
+        return 0.25  # floor for cards the API has no price for
+
+    today = datetime.now()
+
+    # 4. log purchases (varying quantity, condition, date, price and source)
+    held = []  # [card_id, finish, condition, qty, market, purchase_date] for sales/listings
+    for card_id, finish, trend, avg in chosen:
+        market = market_price(trend, avg)
+        condition = rng.choices(CONDITIONS, weights=CONDITION_WEIGHTS)[0]
+        qty = rng.randint(1, 8)
+        purchase_date = (today - timedelta(days=rng.randint(30, 365))).strftime('%Y-%m-%d')
+        price = round(market * rng.uniform(0.5, 0.9), 2)
+        make_purchase(cur, card_id, finish, qty, condition, price, purchase_date, rng.choice(SOURCES))
+        held.append([card_id, finish, condition, qty, market, purchase_date])
+
+        # a handful get a second purchase lot (different date/price/condition) for FIFO
+        if rng.random() < 0.15:
+            condition2 = rng.choices(CONDITIONS, weights=CONDITION_WEIGHTS)[0]
+            qty2 = rng.randint(1, 5)
+            date2 = (today - timedelta(days=rng.randint(30, 365))).strftime('%Y-%m-%d')
+            price2 = round(market * rng.uniform(0.5, 0.9), 2)
+            make_purchase(cur, card_id, finish, qty2, condition2, price2, date2, rng.choice(SOURCES))
+            held.append([card_id, finish, condition2, qty2, market, date2])
+
+    # 5. log sales over a ~35% subset - sell part of a lot so inventory stays non-empty
+    for card_id, finish, condition, qty, market, purchase_date in held:
+        if qty < 2 or rng.random() >= 0.35:
+            continue
+        purchased_on = datetime.strptime(purchase_date, '%Y-%m-%d')
+        span = (today - purchased_on).days
+        if span < 1:
+            continue
+        sell_qty = rng.randint(1, qty - 1)
+        sale_date = (purchased_on + timedelta(days=rng.randint(1, span))).strftime('%Y-%m-%d')
+        sale_price = round(market * rng.uniform(0.9, 1.3), 2)  # some profit, some loss
+        make_sale(cur, card_id, finish, sell_qty, condition, sale_price, sale_date)
+
+    # 6. listed prices (near market) so listedValue populates, one per variant+condition
+    listed_seen = set()
+    for card_id, finish, condition, qty, market, purchase_date in held:
+        variant_id = get_variant_id(cur, card_id, finish)
+        if (variant_id, condition) in listed_seen:
+            continue
+        listed_seen.add((variant_id, condition))
+        list_price = round(market * rng.uniform(1.0, 1.2), 2)
+        cur.execute("INSERT INTO listedPrices (variantID, listPrice, condition) VALUES (?, ?, ?)", (variant_id, list_price, condition))
+
+    con.commit()

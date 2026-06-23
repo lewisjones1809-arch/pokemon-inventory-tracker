@@ -37,7 +37,17 @@ if inv_csv is not None:
             st.download_button("Download failures", pd.DataFrame(failures).to_csv(index=False), "failures.csv")
         get_inventory.clear()
 
-st.button('Insert Dummy Data', on_click=insert_dummy)
+st.caption('Loads ~100 sample cards from the "151" set so you can try the tool without an inventory CSV (needs internet + POKEMON_API_KEY).')
+if st.button('Insert Dummy Data'):
+    with st.status("Inserting dummy data...", expanded=True) as status:
+        try:
+            insert_dummy(con)
+            get_inventory.clear()
+            status.update(label="Dummy data inserted!", state="complete")
+            st.success("Sample inventory loaded - check the dashboard.")
+        except Exception as e:
+            status.update(label="Insert failed", state="error")
+            st.error(f"Could not insert dummy data: {e}")
 
 table = st.selectbox('Reset Table:', ['allCards', 'cardVariants', 'purchases', 'sales', 'listedPrices', 'priceHistory', 'importedSets'])
 st.button('Reset Table', on_click=reset_table, args=(con, table))
