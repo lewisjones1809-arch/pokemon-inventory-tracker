@@ -245,6 +245,44 @@ def create_inventory(con: sqlite3.Connection) -> pd.DataFrame:
     filtered_df = base_df[base_df['quantityHeld'] != 0]
     return filtered_df
 
+def create_purchase_tiles(con: sqlite3.Connection) -> pd.DataFrame:
+    # sqlite query to calculate the total held quantities
+    query = """
+        SELECT variantID, purchasePrice AS price, purchaseCondition AS condition, purchaseQuantity AS quantity, purchaseDate as date
+        FROM purchases
+    """
+
+    #load tables in dataframes
+    card_variants = pd.read_sql_query("SELECT * FROM cardVariants", con).set_index('id')
+    all_cards = pd.read_sql_query("SELECT * FROM allCards", con).set_index('id')
+    listed_prices = pd.read_sql_query("SELECT * FROM listedPrices", con).set_index('id')
+    price_history = pd.read_sql_query("SELECT * FROM priceHistory", con).set_index('id')
+    current_prices = show_latest_prices(card_variants, price_history)
+
+    # merge all required fields into purchases
+    base_df = pd.read_sql(query, con)
+    base_df = pd.merge(base_df, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices[['variantID', 'listPrice']], left_on='variantID', right_on='variantID', how='left').merge(current_prices[['variantID', 'averageSellPrice', 'trendPrice', 'capturedAt']], left_on='variantID', right_on='variantID', how='left')
+    return base_df
+
+def create_sale_tiles(con: sqlite3.Connection) -> pd.DataFrame:
+    # sqlite query to calculate the total held quantities
+    query = """
+        SELECT variantID, salePrice AS price, saleCondition AS condition, saleQuantity AS quantity, saleDate AS date
+        FROM sales
+    """
+
+    #load tables in dataframes
+    card_variants = pd.read_sql_query("SELECT * FROM cardVariants", con).set_index('id')
+    all_cards = pd.read_sql_query("SELECT * FROM allCards", con).set_index('id')
+    listed_prices = pd.read_sql_query("SELECT * FROM listedPrices", con).set_index('id')
+    price_history = pd.read_sql_query("SELECT * FROM priceHistory", con).set_index('id')
+    current_prices = show_latest_prices(card_variants, price_history)
+
+    # merge all required fields into sales
+    base_df = pd.read_sql(query, con)
+    base_df = pd.merge(base_df, card_variants, left_on='variantID', right_on='id', how='left').merge(all_cards, left_on='cardID', right_on='id', how='left').merge(listed_prices[['variantID', 'listPrice']], left_on='variantID', right_on='variantID', how='left').merge(current_prices[['variantID', 'averageSellPrice', 'trendPrice', 'capturedAt']], left_on='variantID', right_on='variantID', how='left')
+    return base_df
+
 # getter function to get variant ID from card ID and finish
 def get_variant_id(cur: sqlite3.Cursor, card_id: str, finish: str, create_if_missing: bool = False) -> int:
 
@@ -341,6 +379,14 @@ def reset_table(con: sqlite3.Connection, table: str):
 @st.cache_data
 def get_inventory(_con):
     return create_inventory(_con)
+
+@st.cache_data
+def get_purchases(_con):
+    return create_purchase_tiles(_con)
+
+@st.cache_data
+def get_sales(_con):
+    return create_sale_tiles(_con)
 
 def insert_dummy(con):
     """Populate the database with a realistic sample inventory so users without an

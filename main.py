@@ -3,6 +3,7 @@ import sqlite3
 import pandas as pd
 import math
 from functions import get_inventory, calc_fifo_cost, calc_current_value, resolve_card
+from st_keyup import st_keyup
 
 # Create a connection to the database
 con = sqlite3.connect('pokemon_tracker.db')
@@ -51,11 +52,14 @@ unreal.metric('Unrealised Margin', f'£{unrealised_margin:.2f}')
 listed.metric('Total Listing Value', f'£{listed_value:.2f}')
 
 top_filt_row = st.columns(3)
-name_filt = top_filt_row[0].text_input('Card Name', placeholder='e.g Ekans')
+with top_filt_row[0]:
+    name_filt = st_keyup('Card Name', key='name_input', placeholder='e.g Ekans', debounce=300)
 set_filt = top_filt_row[1].selectbox('Set', sorted({resolve_card(s, cn)[0] for s, cn in zip(inventory['setName'], inventory['setNumber'])}), index=None, placeholder='e.g 151')
 sort_by = top_filt_row[2].selectbox('Sort by', ['Name ASC', 'Name DESC', 'Set ASC', 'Set DESC', 'Price ASC', 'Price DESC', 'Number ASC', 'Number DESC'])
 sort_column = ''
 [split_sort, asc_desc] = sort_by.split()
+
+current_filter = name_filt or ''
 
 inventory = inventory[inventory['cardName'].str.contains(name_filt)]
 if set_filt is not None:
