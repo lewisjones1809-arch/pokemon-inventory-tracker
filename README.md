@@ -41,11 +41,11 @@ Current inventory is *derived* from purchases minus sales, joined to the latest 
 
 ## Tech stack
 
-- **Python** — core logic
-- **SQLite** — storage (via the `sqlite3` standard library)
-- **pandas** — data transformation and aggregation
-- **requests** — API ingestion
-- **Streamlit** — dashboard / UI
+- **Python** - core logic
+- **SQLite** - storage (via the `sqlite3` standard library)
+- **pandas** - data transformation and aggregation
+- **requests** - API ingestion
+- **Streamlit** - dashboard / UI
 - **Pokémon TCG API** — card and price data
 
 ## How to run
