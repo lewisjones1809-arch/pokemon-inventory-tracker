@@ -2,7 +2,7 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 import math
-from functions import get_inventory, calc_fifo_cost, calc_current_value
+from functions import get_inventory, calc_fifo_cost, calc_current_value, resolve_card
 
 # Create a connection to the database
 con = sqlite3.connect('pokemon_tracker.db')
@@ -49,6 +49,33 @@ sale.metric('Total Sales', f'£{total_sales:.2f}')
 prof.metric('Lifetime Profit', f'£{realised_p_l:.2f}')
 unreal.metric('Unrealised Margin', f'£{unrealised_margin:.2f}')
 listed.metric('Total Listing Value', f'£{listed_value:.2f}')
+
+top_filt_row = st.columns(3)
+name_filt = top_filt_row[0].text_input('Card Name', placeholder='e.g Ekans')
+set_filt = top_filt_row[1].selectbox('Set', sorted({resolve_card(s, cn)[0] for s, cn in zip(inventory['setName'], inventory['setNumber'])}), index=None, placeholder='e.g 151')
+sort_by = top_filt_row[2].selectbox('Sort by', ['Name ASC', 'Name DESC', 'Set ASC', 'Set DESC', 'Price ASC', 'Price DESC', 'Number ASC', 'Number DESC'])
+sort_column = ''
+[split_sort, asc_desc] = sort_by.split()
+
+inventory = inventory[inventory['cardName'].str.contains(name_filt)]
+if set_filt is not None:
+    inventory = inventory[inventory['setName'] == set_filt]
+
+if split_sort == 'Name':
+    sort_column = 'cardName'
+elif split_sort == 'Set':
+    sort_column = 'setName'
+elif split_sort == 'Price':
+    sort_column = 'listPrice'
+elif split_sort == 'Number':
+    sort_column = 'setNumber'
+
+if asc_desc == 'ASC':
+    asc_desc = True
+else:
+    asc_desc = False
+
+inventory = inventory.sort_values(by=[sort_column], ascending=asc_desc)
 
 # Paginate the inventory grid
 page_size = 40

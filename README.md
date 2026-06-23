@@ -93,7 +93,7 @@ Claude has been used to assist in this project a handful of times. These are lis
 3. Fixed promo imports and spotted a mismatch between my export and reality - Surging Sparks was incorrectly labelled as "Standard Series Promos" returning no results from the API.
 4. Reverse holo insert even when API does not believe the card exists: inventory is the source of truth, the API doesn't always have pricing data for cards even when they exist.
 
-25 cards remained unimported due to data quality issues.
+- **Main page performance issues:** The inventory dataframe on the main page was incredibly slow to render, so I asked Claude to propose solutions and then I implemented my preferred choice. The solution implemented was simple pagination limiting the inventory to 40 cards per render.
 
 ## Roadmap
 
