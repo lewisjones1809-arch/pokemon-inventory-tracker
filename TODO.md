@@ -16,7 +16,7 @@
 - [ ] Add success/error feedback on purchase & sale forms
 - [ ] Handle invalid Card ID gracefully (clear error, not traceback)
 - [x] Improve speed of inventory panel
-- [ ] Polish inventory filtering (numbers ordering correctly, names ordering correctly etc.)
+- [x] Polish inventory filtering (numbers ordering correctly, names ordering correctly etc.)
 - [x] Currency formatting with commas
 - [x] Better formatting on purchase and sales history pages
 - [ ] Improve tile formatting

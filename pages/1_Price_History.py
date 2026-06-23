@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import timedelta
+from natsort import natsorted
 from functions import get_connection, get_inventory, get_variant_id
 
 con = get_connection()
@@ -8,18 +9,25 @@ con = get_connection()
 st.title('Price History')
 
 inventory = get_inventory(con)
+def _txt(col):
+    return inventory[col].astype('string[python]').fillna('')
+
 inventory['display'] = (
-inventory['cardName'] + ' | ' +
-inventory['setName'] + ' | CN ' +
-inventory['setNumber'].astype(str) + ' | ' +
-inventory['rarity'] + ' | ' +
-inventory['finish']
+_txt('cardName') + ' | ' +
+_txt('setName') + ' | CN ' +
+_txt('setNumber') + ' | ' +
+_txt('rarity') + ' | ' +
+_txt('finish')
 )
-options = inventory['display'].unique().tolist()
+options = natsorted(inventory['display'].unique().tolist())
 
 card = st.selectbox('Select Card', options=options)
 
-chosen_row = inventory[inventory['display'] == card].iloc[0]
+matches = inventory[inventory['display'] == card]
+if matches.empty:
+    st.warning('No inventory found')
+    st.stop()
+chosen_row = matches.iloc[0]
 
 card_id = chosen_row['cardID']
 finish = chosen_row['finish']

@@ -1,4 +1,5 @@
 import streamlit as st
+from natsort import natsorted
 from functions import make_purchase, make_sale, get_connection, get_inventory, resolve_card
 
 con = get_connection()
@@ -30,20 +31,28 @@ if purchase_submit:
 st.write('Log a sale')
 
 inventory = get_inventory(con)
+
+def _txt(col):
+    return inventory[col].astype('string[python]').fillna('')
+
 inventory['display'] = (
-inventory['cardName'] + ' | ' +
-inventory['setName'] + ' | CN ' +
-inventory['setNumber'].astype(str) + ' | ' +
-inventory['rarity'] + ' | ' +
-inventory['finish'] + ' | ' +
-inventory['condition'] + ' | Qty: ' +
-inventory['quantityHeld'].astype(str)
+_txt('cardName') + ' | ' +
+_txt('setName') + ' | CN ' +
+_txt('setNumber') + ' | ' +
+_txt('rarity') + ' | ' +
+_txt('finish') + ' | ' +
+_txt('condition') + ' | Qty: ' +
+_txt('quantityHeld')
 )
-options = inventory['display'].unique().tolist()
+options = natsorted(inventory['display'].unique().tolist())
 
 card = st.selectbox('Select Card', options=options)
 
-chosen_row = inventory[inventory['display'] == card].iloc[0]
+matches = inventory[inventory['display'] == card]
+if matches.empty:
+    st.warning('No inventory found')
+    st.stop()
+chosen_row = matches.iloc[0]
 
 card_id = chosen_row['cardID']
 finish = chosen_row['finish']
