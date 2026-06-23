@@ -93,6 +93,8 @@ Claude has been used to assist in this project a handful of times. These are lis
 3. Fixed promo imports and spotted a mismatch between my export and reality - Surging Sparks was incorrectly labelled as "Standard Series Promos" returning no results from the API.
 4. Reverse holo insert even when API does not believe the card exists: inventory is the source of truth, the API doesn't always have pricing data for cards even when they exist.
 
+25 cards remained unimported due to data quality issues.
+
 ## Roadmap
 
 **Working in v1:**

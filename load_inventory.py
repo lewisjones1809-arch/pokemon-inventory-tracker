@@ -1,6 +1,6 @@
 import pandas as pd
 import sqlite3
-from functions import call_api, create_new_cards, update_prices, get_variant_id, create_inventory, get_set_id_from_name
+from functions import call_api, create_new_cards, update_prices, get_variant_id, create_inventory, get_set_id_from_name, resolve_card
 import time
 import csv
 
@@ -10,7 +10,12 @@ purchases_table = pd.read_sql_query('SELECT * FROM purchases', con)
 
 existing_inventory = pd.read_csv('inventory.csv')
 english = existing_inventory[existing_inventory['language'] == 'English']
-sets = english['set'].unique()
+
+# resolve the marketplace set/number naming to the pokemontcg.io API's naming up
+# front, so the import below pulls the correct API sets - including the gallery and
+# promo subsets that the raw inventory never names directly (e.g. "Brilliant Stars"
+# #TG07 actually lives in the API set "Brilliant Stars Trainer Gallery").
+sets = sorted({resolve_card(s, cn)[0] for s, cn in zip(english['set'], english['cn'])})
 loaded_inventory = create_inventory(con)
 
 # sets already fully imported on a previous run - skip these so a re-run
@@ -34,7 +39,7 @@ for set in sets:
             'page': page,
             'pageSize': page_size,
         }
-        time.sleep(0.1)
+        time.sleep(2)
         response = call_api(params)
         response_data = response.json()
         cards = response_data['data']
@@ -68,8 +73,8 @@ for index, card in existing_inventory.iterrows():
             continue
 
         card_name = card['name']
-        set_name = card['set']
-        collector_number = card['cn'].lstrip('0')
+        # translate the export's set name + collector number into what the API uses
+        set_name, collector_number = resolve_card(card['set'], card['cn'])
         finish = card['finishType']
 
         if finish == 'ReverseHolo':
@@ -96,7 +101,7 @@ for index, card in existing_inventory.iterrows():
             card_id = result[0]
             seen[key] = card_id
 
-        variant_id = get_variant_id(cur, card_id, finish)
+        variant_id = get_variant_id(cur, card_id, finish, create_if_missing=True)
         cur.execute("INSERT INTO purchases (variantID, purchaseQuantity, purchaseCondition, purchasePrice, purchaseDate, purchaseSource) VALUES (?, ?, ?, ?, datetime('now'), ?)", (variant_id, quantity, condition, None, 'Initial Inventory'))
         cur.execute("INSERT INTO listedPrices (variantID, listPrice, condition) VALUES (?, ?, ?)", (variant_id, list_price, condition))
         counter += 1

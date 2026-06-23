@@ -2,8 +2,55 @@ import sqlite3
 import requests
 from dotenv import load_dotenv
 import os
+import re
 import pandas as pd
 import streamlit as st
+
+# The marketplace export names some sets differently from the pokemontcg.io API.
+# These are confirmed one-to-one renames (set name only; numbers already match).
+SET_ALIASES = {
+    'Base Set': 'Base',
+    "McDonald's Collection 25th Anniversary": "McDonald's Collection 2021",
+    'Standard Series Promos': 'Surging Sparks',
+    'SV Black Star Promos': 'Scarlet & Violet Black Star Promos',
+}
+
+
+def resolve_card(set_name: str, cn: str) -> tuple[str, str]:
+    """Translate an inventory (set, collector number) into the (setName, setNumber)
+    the pokemontcg.io API actually uses, so the local allCards lookup can match.
+
+    Returns a (api_set_name, api_set_number) tuple. Cards the export labels with a
+    set/number the API doesn't share (genuinely bad or foreign data) are returned
+    largely unchanged and will simply fail the downstream lookup as before.
+    """
+    cn = str(cn).strip()
+
+    # normalise the set name: curly -> straight apostrophe, drop the marketplace
+    # ": Additionals" suffix (secret rares that live in the base API set), alias
+    name = set_name.replace('’', "'")
+    if name.endswith(': Additionals'):
+        name = name[:-len(': Additionals')]
+    name = SET_ALIASES.get(name, name)
+
+    # gallery / shiny-vault cards live in a SEPARATE API set, flagged by the
+    # collector-number prefix. Numbers are padded to the API's width.
+    m = re.match(r'^(TG|GG|SV)0*(\d+)$', cn, re.IGNORECASE)
+    if m:
+        prefix, digits = m.group(1).upper(), m.group(2)
+        if prefix == 'TG':
+            return f'{name} Trainer Gallery', f'TG{digits.zfill(2)}'
+        if prefix == 'GG':
+            return f'{name} Galarian Gallery', f'GG{digits.zfill(2)}'
+        if prefix == 'SV':
+            return f'{name} Shiny Vault', f'SV{digits.zfill(3)}'
+
+    # SWSH promos: the export uses a bare number, the API uses SWSH### (zero-padded)
+    if name == 'SWSH Black Star Promos':
+        return name, 'SWSH' + re.sub(r'\D', '', cn).zfill(3)
+
+    # default: API stores numbers without leading zeros
+    return name, cn.lstrip('0')
 
 @st.cache_resource
 def get_connection():
@@ -197,7 +244,7 @@ def create_inventory(con: sqlite3.Connection) -> pd.DataFrame:
     return filtered_df
 
 # getter function to get variant ID from card ID and finish
-def get_variant_id(cur: sqlite3.Cursor, card_id: str, finish: str) -> int:
+def get_variant_id(cur: sqlite3.Cursor, card_id: str, finish: str, create_if_missing: bool = False) -> int:
 
     # try to select the appropriate variant
     result = cur.execute("SELECT id FROM cardVariants WHERE cardID = ? AND finish = ?", (card_id, finish)).fetchone()
@@ -221,8 +268,14 @@ def get_variant_id(cur: sqlite3.Cursor, card_id: str, finish: str) -> int:
         #try to select the variant again
         result = cur.execute("SELECT id FROM cardVariants WHERE cardID = ? AND finish = ?", (card_id, finish)).fetchone()
 
-        # if there is still no variant, raise an exception and ask the user to check the finish
+        # if there is still no variant, the API doesn't list this finish for the card.
+        # When loading owned inventory the row IS ground truth (we physically hold the
+        # card), so create the variant on demand rather than dropping it; its prices
+        # just stay null. Other callers keep the original strict behaviour.
         if result is None:
+            if create_if_missing:
+                cur.execute("INSERT INTO cardVariants (cardID, finish) VALUES (?, ?)", (card_id, finish))
+                return cur.lastrowid
             raise Exception("Error with card variant. Please check finish and try again")
 
     #pull the integer from the result as variant ID

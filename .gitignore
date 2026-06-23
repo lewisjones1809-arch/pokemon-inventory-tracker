@@ -8,3 +8,6 @@ manual_insert.py
 inventory.csv
 api_tests.py
 .claude/
+failures.csv
+reset_db.py
+ingest_cards.py
